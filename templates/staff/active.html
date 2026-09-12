@@ -1,0 +1,216 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>员工账号激活</title>
+    <link rel="stylesheet" href="{% static 'bootstrap5/bootstrap.min.css' %}">
+     <script src="{% static 'jquery/jquery.min.js' %}"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, "Microsoft YaHei", sans-serif;
+            color: #172033;
+            background: linear-gradient(135deg, #edf5ff 0%, #f8fbff 48%, #eaf8f4 100%);
+        }
+
+        .activation-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .activation-panel {
+            width: 100%;
+            max-width: 420px;
+            padding: 42px 38px;
+            background: #ffffff;
+            border: 1px solid #e5edf5;
+            border-radius: 16px;
+            box-shadow: 0 24px 60px rgba(29, 53, 87, 0.14);
+        }
+
+        .brand-mark {
+            width: 56px;
+            height: 56px;
+            margin: 0 auto 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 14px;
+            color: #ffffff;
+            font-size: 18px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #0d6efd 0%, #11b8a6 100%);
+        }
+
+        .page-title {
+            margin: 0;
+            text-align: center;
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+
+        .page-desc {
+            margin: 12px 0 30px;
+            text-align: center;
+            color: #6b7688;
+            font-size: 14px;
+            line-height: 1.7;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2c3444;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .activation-input,
+        .activation-button {
+            width: 100%;
+            height: 48px;
+            border-radius: 10px;
+            font-size: 15px;
+        }
+
+        .activation-input {
+            padding: 0 14px;
+            color: #172033;
+            border: 1px solid #d4deea;
+            background: #fbfdff;
+            outline: none;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+        }
+
+        .activation-input::placeholder {
+            color: #a0a9b8;
+        }
+
+        .activation-input:focus {
+            border-color: #0d6efd;
+            background: #ffffff;
+            box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.12);
+        }
+
+        .activation-button {
+            margin-top: 6px;
+            border: 0;
+            color: #ffffff;
+            font-weight: 700;
+            background: linear-gradient(135deg, #0d6efd 0%, #0aa2c0 100%);
+            box-shadow: 0 14px 24px rgba(13, 110, 253, 0.24);
+            transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+        }
+
+        .activation-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 18px 30px rgba(13, 110, 253, 0.28);
+        }
+
+        .activation-button:disabled {
+            opacity: 0.72;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .safe-tip {
+            margin: 18px 0 0;
+            text-align: center;
+            color: #7c8798;
+            font-size: 13px;
+        }
+
+        @media (max-width: 480px) {
+            .activation-page {
+                padding: 16px;
+            }
+
+            .activation-panel {
+                padding: 34px 22px;
+                border-radius: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="activation-page">
+        <section class="activation-panel">
+            <div class="brand-mark">OA</div>
+            <h1 class="page-title">员工账号激活</h1>
+            <p class="page-desc">请填写邮箱并设置登录密码，完成账号激活。</p>
+
+            <form id="active-form" method="post">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="email" class="form-label">邮箱</label>
+                    <input
+                        type="email"
+                        class="activation-input"
+                        id="email"
+                        name="email"
+                        placeholder="请输入邮箱"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password" class="form-label">密码</label>
+                    <input
+                        type="password"
+                        class="activation-input"
+                        id="password"
+                        name="password"
+                        placeholder="请输入密码"
+                        required
+                    >
+                </div>
+
+                <button type="submit" class="activation-button" id="active-btn">激活</button>
+            </form>
+
+            <p class="safe-tip">激活成功后即可使用该邮箱登录系统</p>
+        </section>
+    </main>
+
+
+    <script>
+        $("#active-btn").on("click",function (event){
+            event.preventDefault()
+            let  email = $("#email").val()
+            let  password = $("#password").val()
+            let  emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+            if(!emailRegex.test(email)){
+                alert("请输入正确的邮箱！")
+                return;
+            }
+            if (!password || password.length<6){
+                alert("请输入最少6位密码！")
+                return;
+            }
+            $.post("/staff/active",{email,password},function (result){
+                if (result.code ==200){
+                    alert("激活成功！")
+                    window.location = "/"
+                }else {
+                    alert(result.message)
+                }
+            })
+        })
+    </script>
+</body>
+</html>
