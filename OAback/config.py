@@ -11,10 +11,10 @@ class Core:
         "DJANGO_SECRET_KEY",
         "django-insecure-0b$6gs(hkwbusbr#x-rsda(umd^jeele@02a5%f#kjmg4v@b5q",
     )
-    DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() in {"1", "true", "yes", "on"}
+    DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() in {"1", "true", "yes", "on"}
     ALLOWED_HOSTS = [
         host.strip()
-        for host in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
+        for host in os.getenv("DJANGO_ALLOWED_HOSTS", "121.41.67.132,www.zywser.me,127.0.0.1,localhost").split(",")
         if host.strip()
     ]
 

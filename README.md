@@ -73,7 +73,23 @@ pip install -r requirements.txt
 
 ### 3. 配置 `.env`
 
-项目根目录的 `.env` 是唯一配置入口（`OAback/config.py` 在**进程启动时**加载一次，修改后必须重启服务才生效）。完整键位：
+项目根目录的 `.env` 是唯一配置入口（`OAback/config.py` 在**进程启动时**加载一次，修改后必须重启服务才生效）。
+
+**必填优先（不填功能不完整）**
+
+| 键 | 作用 | 不填会怎样 |
+|---|---|---|
+| `DB_PASSWORD` | MySQL 密码 | 连不上库，**启动即报错**（除非本机 MySQL 恰好是 `123456`） |
+| `DEEPSEEK_API_KEY` | 对话模型（回答生成） | Agent 无法对话（`/api/agent/config` 中 `llm.ready=false`） |
+| `DASHSCOPE_API_KEY` | 嵌入模型（知识库向量化） | 知识文件无法上传/向量化，RAG 不可用 |
+| `TAVILY_API_KEY` | 联网搜索 | 联网问答降级（只能答内部知识） |
+| `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` | QQ 邮箱账号 / 授权码 | 员工激活邮件发不出去 |
+
+> 其余键均有默认值，保持默认即可运行。`DJANGO_DEBUG` / `DJANGO_ALLOWED_HOSTS` 属环境切换项：本地开发用 `true` + `127.0.0.1,localhost`，生产部署用 `false` + 服务器 IP/域名（可逗号多值共存）。
+
+**配置完整度自检**：启动服务后访问 `GET /api/agent/config`，看到 `llm.ready` / `embedding.ready` / `web_search.ready` 三个字段全为 `true`，即 Agent 对话 + 知识库 + 联网搜索全部可用。
+
+完整键位：
 
 **基础 / 数据库 / 邮箱 / Redis**
 
@@ -110,7 +126,7 @@ pip install -r requirements.txt
 | `AGENT_WEB_SEARCH_MAX_RESULTS` | `5` | 联网返回条数 |
 | `AGENT_WEB_SEARCH_TOPIC` | `general` | 搜索主题 |
 | `AGENT_WEB_SEARCH_SEARCH_DEPTH` | `advanced` | 搜索深度 |
-| `AGENT_CHUNK_SIZE` / `AGENT_CHUNK_OVERLAP` | 500 / 50 | 知识分块大小与重叠 |
+| `AGENT_CHUNK_SIZE` / `AGENT_CHUNK_OVERLAP` | 900 / 120 | 知识分块大小与重叠 |
 | `AGENT_TOP_K` | `5` | 默认检索返回条数 |
 | `AGENT_CONTEXT_MAX_CHARS` | `8000` | 喂给 LLM 的知识上下文总长上限（字符），调大给长知识更多空间、调小省 token |
 | `AGENT_INJECTION_GUARD` | `true` | 提示注入防护开关（检测"忽略指令/泄露提示词/越狱"等攻击，命中直接拒绝并返回 400） |
