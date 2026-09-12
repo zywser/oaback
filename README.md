@@ -1,6 +1,6 @@
-# OAback —— 企业 OA 办公系统后端
+# 沐光 OA —— 基于大模型的智能 OA 办公平台后端
 
-基于 **Django + Django REST Framework** 的企业级 OA 办公系统后端，提供员工管理、通知发布、请假审批、图片上传、首页统计与 **AI 智能助手（RAG 知识问答 + Agent 工具调用 + FAISS 向量检索）** 等能力。前端项目为 `oafront`（Vue3 + Vite），前后端分离，通过 REST API + SSE 流式接口通信。
+基于 **Django + Django REST Framework** 的企业智能 OA 办公系统后端，提供员工管理、通知发布、请假审批、图片上传、首页统计与 **AI 智能助手（RAG 知识问答 + Agent 工具调用 + FAISS 向量检索）** 等能力。前端项目为 `oafront`（Vue3 + Vite），前后端分离，通过 REST API + SSE 流式接口通信。
 
 ---
 
@@ -634,4 +634,5 @@ celery -A OAback worker -l info
 | 知识库导入后检索不到 | 确认知识源状态为 `indexed`；`failed` 状态用 `重建失败项` 或 `POST /agent/reindex {"failed_only":true}` 重试 |
 | 修改/删除知识源后索引不一致 | 单删/批删/重建都会自动同步 FAISS 向量索引（`purge_source_vectors`），若手动改库导致不一致，用 `POST /agent/reindex` 全量重建（索引目录 `var/vector_store/`） |
 | 向量检索报错后仍能问答 | `AGENT_VECTOR_STORE=auto` 下 FAISS 不可用自动回退 MySQL 余弦扫描，功能不中断，日志记录降级原因 |
+
 

@@ -6,6 +6,7 @@ from  django.conf import  settings
 from django.http.response import JsonResponse
 from rest_framework.status import HTTP_403_FORBIDDEN
 from django.contrib.auth.models import AnonymousUser
+from django.shortcuts import reverse
 
 
 from APPS.oaauth.models import OAUser
@@ -14,16 +15,17 @@ from APPS.oaauth.models import OAUser
 class LoginCheckMiddleware(MiddlewareMixin):
     keyword = "JWT"
 
-    # def __init__(self,*args,**kwargs):
-    #     super().__init__(*args,**kwargs)
-    #     self.white_list = ["/auth"]
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.white_list = ["/auth"]
 
 
 
     def process_request(self,request):
         # 1. 如果返回None，那么会正常执行（包括执行视图、执行其他中间件代码）
         # 2. 如果返回的是一个HttpResponse对象，那么将不会执行视图，以及后面的代码
-        self.white_list=["/auth/login","/staff/active","/docs","/docs/"]
+        # self.white_list=["/auth/login","/staff/active","/docs"]
+        self.white_list = [reverse("oaauth:login"),reverse("staff:active_staff"),reverse("api_docs")]
 
         if request.path in self.white_list or request.path.startswith(settings.MEDIA_URL):
             request.user = AnonymousUser()

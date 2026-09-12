@@ -143,6 +143,9 @@ STATICFILES_DIRS = [
     BASE_DIR / "static"
 ]
 
+# 生产环境 collectstatic 收集目录（部署时执行 manage.py collectstatic）
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
 MEDIA_ROOT = BASE_DIR/"media"
 MEDIA_URL = "/media/"
 
@@ -187,4 +190,47 @@ CACHES = {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
         "LOCATION": Caches.LOCATION,
     }
+}
+
+
+"""日志"""
+import os
+
+# 日志级别：开发环境打全量 SQL，生产环境只打 INFO 及以上（避免刷爆日志文件）
+LOG_LEVEL = "DEBUG" if Core.DEBUG else "INFO"
+
+# 日志目录：默认项目根 logs/ 并自动创建；服务器部署时可用环境变量 LOG_DIR 覆盖（如 /data/log）
+LOG_DIR = Path(os.environ.get("LOG_DIR", str(BASE_DIR / "logs")))
+Path(LOG_DIR).mkdir(parents=True, exist_ok=True)
+
+LOGGING = {
+    "version": 1,
+    'disable_existing_loggers': True,
+    'formatters': {
+        'verbose': {
+            'format': '%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s'
+        },
+        'simple': {
+            'format': '%(levelname)s %(message)s'
+        },
+    },
+    'handlers': {
+        'console':{
+            'level': LOG_LEVEL,
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose'
+        },
+       'file': {
+           'level': LOG_LEVEL,
+           'class': 'logging.FileHandler',
+           'filename': str(LOG_DIR / 'oa.log'),
+           'formatter': 'verbose'
+       },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console','file'],
+            'level': LOG_LEVEL,
+        },
+    },
 }

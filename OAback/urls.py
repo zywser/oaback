@@ -24,11 +24,11 @@ urlpatterns = [
     re_path(r"^docs/?$", ApiDocsView.as_view(), name="api_docs"),
 
     # path('admin/', admin.site.urls),
-    path('auth/',include("APPS.oaauth.urls") ),
-    path("",include("APPS.absent.urls")),
-    path("inform/",include("APPS.inform.urls")),
-    path("staff/",include("APPS.staff.urls")),
-    path("image/",include("APPS.image.urls")),
-    path("agent/",include("APPS.agent.urls")),
-    path("home/",include("APPS.home.urls")),
+    path('api/auth/',include("APPS.oaauth.urls") ),
+    path("api/",include("APPS.absent.urls")),
+    path("api/inform/",include("APPS.inform.urls")),
+    path("api/staff/",include("APPS.staff.urls")),
+    path("api/image/",include("APPS.image.urls")),
+    path("api/agent/",include("APPS.agent.urls")),
+    path("api/home/",include("APPS.home.urls")),
 ] + static(settings.MEDIA_URL,document_root=settings.MEDIA_ROOT)
