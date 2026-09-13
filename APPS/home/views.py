@@ -304,9 +304,13 @@ class LatestAbsentView(APIView):
 
     def get(self,request):
         # 董事会的人，可以看到所有人的考勤信息，非董事会的人只能看到自己部门的信息
+        # （用户无部门时只返回自己发起的请假，避免 500）
         current_user = request.user
         queryset = Absent.objects
-        if current_user.department.name != "董事会":
+        dept = current_user.department
+        if dept is None:
+            queryset = queryset.filter(requester_id=current_user.uid)
+        elif dept.name != "董事会":
             queryset = queryset.filter(requester__department_id=current_user.department_id)
         queryset=queryset.all()[:10]
         serializer = AbsentSerializer(queryset,many=True)
@@ -326,4 +330,10 @@ class DepartmentStaffCountView(APIView):
         print(rows)
         print("张海毅")
         return  Response(rows)
+
+
+# apps/home/views.py  安全检查
+class HealthCheckView(APIView):
+    def get(self, request):
+        return Response({"code": 200})
 

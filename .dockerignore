@@ -1,0 +1,39 @@
+# ===== 敏感信息（绝不进镜像）=====
+.env
+.env.*
+!.env.example
+
+# ===== 依赖 / 构建 =====
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+node_modules/
+
+# ===== 运行时数据（容器内使用共享卷，不随镜像）=====
+media/
+staticfiles/
+logs/
+*.log
+celerybeat-schedule*
+*.pid
+db.sqlite3
+
+# ===== 向量索引保留（省去容器内重建，随镜像携带）=====
+var/*
+!var/vector_store/
+
+# ===== git / IDE / 工具 =====
+.git/
+.idea/
+.vscode/
+.agents/
+qodana.yaml
+
+# ===== docker 自身 =====
+.dockerignore

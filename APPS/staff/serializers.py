@@ -16,9 +16,10 @@ class AddStaffSerializer(serializers.Serializer):
         if email_exists:
             raise serializers.ValidationError("该邮箱已存在！")
 
-        # 2.验证当前用户是否是部门的leader
-        if request.user.department.leader.uid != request.user.uid:
-            raise  serializers.ValidationError("非部门领导，不能添加员工！")
+        # 2.验证当前用户是否是部门的leader（部门为空或非leader → 无权限，避免 500）
+        dept = request.user.department
+        if dept is None or dept.leader_id != request.user.uid:
+            raise serializers.ValidationError("非部门领导，不能添加员工！")
         return attrs
 
 

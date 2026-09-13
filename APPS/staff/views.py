@@ -85,9 +85,11 @@ class StaffViewSet(
         # 1. 如果是董事会的，那么返回所以员工
         # 2. 如果不是董事会的，但是是部门到的leader，那么就返回部门的员工
         # 3. 如果不是董事会的，也不是部门的leader，那么就抛出403 Forbidden（没有权限）错误
+        # 4. 用户无部门或部门无 leader（清理重复数据后可能出现的空值）→ 按无权限处理，避免 500
         user = self.request.user
-        if user.department.name !="董事会":
-            if user.uid != user.department.leader.uid:
+        dept = user.department
+        if dept is None or dept.name != "董事会":
+            if dept is None or dept.leader_id != user.uid:
                 raise exceptions.PermissionDenied()
             else:
                 queryset = queryset.filter(department_id=user.department_id)
@@ -227,9 +229,10 @@ class StaffDownLoadView(APIView):
             queryset = OAUser.objects
 
             # ---------------权限校验----------------------
-            if current_user.department.name != "董事会":
+            dept = current_user.department
+            if dept is None or dept.name != "董事会":
             # 判断部门名称是不是叫 “董事会”
-                if current_user.department.leader_id != current_user.uid:
+                if dept is None or dept.leader_id != current_user.uid:
                 # 如果登录的用户的领导的uid不等于当前登录用户的uid
                     return Response({"detail":"没有权限下载!"}, status=status.HTTP_403_FORBIDDEN)
                 else:
@@ -282,7 +285,7 @@ class StaffUpLoadView(APIView):
 
         # 2. 权限校验：非董事会 且 不是部门leader 禁止导入
         dept = current_user.department
-        if dept.name != "董事会" and dept.leader_id != current_user.uid:
+        if dept is None or (dept.name != "董事会" and dept.leader_id != current_user.uid):
             return Response({"detail": "您没有权限导入员工！！"}, status=status.HTTP_403_FORBIDDEN)
 
         # 初始化存储待批量创建的用户列表

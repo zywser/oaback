@@ -1,0 +1,40 @@
+# ===== OAback 一键部署编排 =====
+# 用法：在 F:\Django\OAback 目录执行  docker compose up -d --build
+# 前置：服务器已装 Docker 与 Docker Compose；宿主已有 MySQL(MariaDB) 和 Redis
+# 目录约定（服务器上两个项目并排）：
+#   /www/oaback    ← 后端仓库（含本文件）
+#   /www/oafront   ← 前端仓库（含 Dockerfile / nginx_oa.conf）
+services:
+  backend:
+    build: .
+    container_name: oaback-backend
+    # host 网络：容器直接使用宿主网络，.env 里 DB_HOST=127.0.0.1 即连宿主 MariaDB/Redis
+    network_mode: host
+    env_file:
+      - .env
+    volumes:
+      - sock_data:/data/sock          # uWSGI socket，前端 nginx 容器共享
+      - log_data:/data/log            # uWSGI / nginx 日志
+      - static_data:/www/staticfiles  # collectstatic 产物，前端 nginx 容器共享
+      - media_data:/www/media         # 用户上传文件，前端 nginx 容器共享
+    mem_limit: 512m
+    restart: unless-stopped
+
+  frontend:
+    build: ../oafront
+    container_name: oaback-frontend
+    network_mode: host
+    depends_on:
+      - backend
+    volumes:
+      - sock_data:/data/sock
+      - log_data:/data/log
+      - static_data:/www/staticfiles
+      - media_data:/www/media
+    restart: unless-stopped
+
+volumes:
+  sock_data:
+  log_data:
+  static_data:
+  media_data:
