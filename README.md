@@ -95,17 +95,17 @@ pip install -r requirements.txt
 
 **基础 / 数据库 / 邮箱 / Redis**
 
-| 键 | 默认值 | 说明 |
-|---|---|---|
-| `DJANGO_SECRET_KEY` | 内置 dev key | Django 密钥（JWT 签名也用它） |
-| `DJANGO_DEBUG` | `True` | 调试模式 |
-| `DJANGO_ALLOWED_HOSTS` | `127.0.0.1,localhost` | 允许访问的主机 |
+| 键 | 默认值                        | 说明 |
+|---|----------------------------|---|
+| `DJANGO_SECRET_KEY` | 内置 dev key                 | Django 密钥（JWT 签名也用它） |
+| `DJANGO_DEBUG` | `True`                     | 调试模式 |
+| `DJANGO_ALLOWED_HOSTS` | `127.0.0.1,localhost`      | 允许访问的主机 |
 | `DB_ENGINE` | `django.db.backends.mysql` | 数据库引擎 |
-| `DB_NAME` | `zhiliaooa` | 数据库名 |
-| `DB_USER` / `DB_PASSWORD` | `root` / `<你的密码>` | 账号密码 |
-| `DB_HOST` / `DB_PORT` | `127.0.0.1` / `3306` | 地址端口 |
-| `EMAIL_BACKEND` / `EMAIL_HOST` / `EMAIL_PORT` | SMTP / smtp.qq.com / 587 | 邮件服务 |
-| `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` | 空 | 邮箱账号 / 授权码 |
+| `DB_NAME` | `oadb`                     | 数据库名 |
+| `DB_USER` / `DB_PASSWORD` | `root` / `<你的密码>`          | 账号密码 |
+| `DB_HOST` / `DB_PORT` | `127.0.0.1` / `3306`       | 地址端口 |
+| `EMAIL_BACKEND` / `EMAIL_HOST` / `EMAIL_PORT` | SMTP / smtp.qq.com / 587   | 邮件服务 |
+| `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` | 空                          | 邮箱账号 / 授权码 |
 | `CELERY_BROKER_URL` | `redis://127.0.0.1:6379/1` | Celery broker |
 | `CELERY_RESULT_BACKEND` | `redis://127.0.0.1:6379/2` | Celery 结果 |
 | `CACHE_LOCATION` | `redis://127.0.0.1:6379/3` | Django 缓存 |
