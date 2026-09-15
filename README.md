@@ -8,18 +8,18 @@
 
 ## 一、技术栈
 
-| 类别 | 选型 | 说明 |
-|---|---|---|
-| 语言 | Python 3.13 | 实测验证环境为 `E:\python13.0\python.exe` |
-| Web 框架 | Django 6.0.4 | 关闭了 admin / sessions / CSRF，纯 API 服务 |
-| REST | Django REST Framework 3.17.1 | 全局分页 `PageNumberPagination`（每页 10 条） |
-| 数据库 | MySQL 8.x | 默认库 `zhiliaooa`，连接参数全部来自 `.env` |
-| 缓存 | Redis（`django.core.cache.backends.redis.RedisCache`） | 用于首页部门统计缓存 |
+| 类别 | 选型 | 说明                                                                                     |
+|---|---|----------------------------------------------------------------------------------------|
+| 语言 | Python 3.13 | 实测验证环境为 `E:\python13.0\python.exe`                                                     |
+| Web 框架 | Django 6.0.4 | 关闭了 admin / sessions / CSRF，纯 API 服务                                                   |
+| REST | Django REST Framework 3.17.1 | 全局分页 `PageNumberPagination`（每页 10 条）                                                   |
+| 数据库 | MySQL 8.x | 默认库 `oadb`，连接参数全部来自 `.env`                                                             |
+| 缓存 | Redis（`django.core.cache.backends.redis.RedisCache`） | 用于首页部门统计缓存                                                                             |
 | 任务队列 | Celery（异步任务） | broker `redis://127.0.0.1:6379/1`，result backend `redis://127.0.0.1:6379/2`，用于激活邮件异步发送 |
-| 认证 | 自研 JWT（`pyjwt`） | `Authorization: JWT <token>`，有效期 7 天 |
-| 跨域 | `django-cors-headers` | `CORS_ALLOW_ALL_ORIGINS = True`，开发期全放开 |
-| LLM / RAG / Agent | langchain 1.x + langchain-openai / FAISS / tavily | 对话、嵌入、向量检索、Agent 工具调用、联网搜索 |
-| 邮箱 | SMTP（默认 smtp.qq.com:587/TLS） | 员工激活邮件 |
+| 认证 | 自研 JWT（`pyjwt`） | `Authorization: JWT <token>`，有效期 7 天                                                   |
+| 跨域 | `django-cors-headers` | `CORS_ALLOW_ALL_ORIGINS = True`，开发期全放开                                                 |
+| LLM / RAG / Agent | langchain 1.x + langchain-openai / FAISS / tavily | 对话、嵌入、向量检索、Agent 工具调用、联网搜索                                                             |
+| 邮箱 | SMTP（默认 smtp.qq.com:587/TLS） | 员工激活邮件                                                                                 |
 
 ---
 
@@ -632,12 +632,6 @@ celery -A OAback worker -l info
 - Windows 开发环境前台运行 worker 即可；生产环境可用 `celery -A OAback worker --detach` 或 supervisor/systemd 守护。
 - 新增任务时按"定义 → `任务.delay(...)` 调用 → worker 消费"三步接入；`delay()` 是异步入口，直接 `任务(...)` 则为同步执行（可用于本地调试）。
 - Redis 未启动时投递任务会失败，但接口本身不受影响（如激活邮件会发不出去，前端仍能新增员工）。
-
----
-
-## 十一、/docs 接口文档页
-
-`GET /docs` 返回自绘的接口文档页面（模板 `templates/docs/index.html`），按"认证/请假/通知/员工/图片/首页统计"分组列出各接口的请求与响应示例。数据源为 `APPS/home/views.py` 的 `API_DOC_SECTIONS`。智能助手接口的详细说明见本 README 第六节。
 
 ---
 
