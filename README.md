@@ -2,6 +2,8 @@
 
 基于 **Django + Django REST Framework** 的企业智能 OA 办公系统后端，提供员工管理、通知发布、请假审批、图片上传、首页统计与 **AI 智能助手（RAG 知识问答 + Agent 工具调用 + FAISS 向量检索）** 等能力。前端项目为 `oafront`（Vue3 + Vite），前后端分离，通过 REST API + SSE 流式接口通信。
 
+> **仓库导航**：本仓库为后端代码 · 前端项目 [oafront（Vue3 + Vite）](https://github.com/zywser/oafront)
+
 ---
 
 ## 一、技术栈
@@ -60,7 +62,7 @@ OAback/
 ### 1. 前置依赖
 
 - Python 3.13
-- MySQL（默认 `zhiliaooa` 库，root / 123456 @ 127.0.0.1:3306，可在 `.env` 修改）
+- MySQL（默认 `oadb` 库，root / `<你的密码>` @ 127.0.0.1:3306，可在 `.env` 修改）
 - Redis（默认 127.0.0.1:6379，用于缓存与 Celery）
 
 ### 2. 安装依赖
@@ -79,7 +81,7 @@ pip install -r requirements.txt
 
 | 键 | 作用 | 不填会怎样 |
 |---|---|---|
-| `DB_PASSWORD` | MySQL 密码 | 连不上库，**启动即报错**（除非本机 MySQL 恰好是 `123456`） |
+| `DB_PASSWORD` | MySQL 密码 | 连不上库，**启动即报错**（除非本机 MySQL 恰好是默认密码） |
 | `DEEPSEEK_API_KEY` | 对话模型（回答生成） | Agent 无法对话（`/api/agent/config` 中 `llm.ready=false`） |
 | `DASHSCOPE_API_KEY` | 嵌入模型（知识库向量化） | 知识文件无法上传/向量化，RAG 不可用 |
 | `TAVILY_API_KEY` | 联网搜索 | 联网问答降级（只能答内部知识） |
@@ -100,7 +102,7 @@ pip install -r requirements.txt
 | `DJANGO_ALLOWED_HOSTS` | `127.0.0.1,localhost` | 允许访问的主机 |
 | `DB_ENGINE` | `django.db.backends.mysql` | 数据库引擎 |
 | `DB_NAME` | `zhiliaooa` | 数据库名 |
-| `DB_USER` / `DB_PASSWORD` | `root` / `123456` | 账号密码 |
+| `DB_USER` / `DB_PASSWORD` | `root` / `<你的密码>` | 账号密码 |
 | `DB_HOST` / `DB_PORT` | `127.0.0.1` / `3306` | 地址端口 |
 | `EMAIL_BACKEND` / `EMAIL_HOST` / `EMAIL_PORT` | SMTP / smtp.qq.com / 587 | 邮件服务 |
 | `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` | 空 | 邮箱账号 / 授权码 |
@@ -518,7 +520,7 @@ python manage.py eval_baseline --json docs/eval_report.json   # 自定义报告�
 | `injection_blocked` | 注入攻击条目（`is_injection=true`）被后端拦截的比例（安全加固指标，8/8 为全拦截） |
 | `coverage_gaps` | 评测依赖但当前知识库中不存在的知识源标题（= 知识覆盖缺口） |
 
-### 基线结果（2026-09-12，DeepSeek，联网关，FAISS 向量检索 + Agent 工具链路）
+### 基线结果（DeepSeek，联网关，FAISS 向量检索 + Agent 工具链路）
 
 | 指标 | 数值 |
 |---|---|
@@ -650,5 +652,4 @@ celery -A OAback worker -l info
 | 知识库导入后检索不到 | 确认知识源状态为 `indexed`；`failed` 状态用 `重建失败项` 或 `POST /agent/reindex {"failed_only":true}` 重试 |
 | 修改/删除知识源后索引不一致 | 单删/批删/重建都会自动同步 FAISS 向量索引（`purge_source_vectors`），若手动改库导致不一致，用 `POST /agent/reindex` 全量重建（索引目录 `var/vector_store/`） |
 | 向量检索报错后仍能问答 | `AGENT_VECTOR_STORE=auto` 下 FAISS 不可用自动回退 MySQL 余弦扫描，功能不中断，日志记录降级原因 |
-
 

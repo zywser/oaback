@@ -1,0 +1,94 @@
+# ===== OAback 全容器化部署编排 =====
+# 【放置位置】此文件放在 /www 目录（oaback 与 oafront 两个仓库的【父目录】），
+#   即服务器目录结构：
+#     /www/compose.yaml
+#     /www/oaback     ← 后端仓库
+#     /www/oafront    ← 前端仓库
+# 【用法】cd /www && docker compose up -d --build
+#
+# 注意：后端 .env 必须用容器服务名（bridge 网络下不能用 127.0.0.1）：
+#   DB_HOST=oadb
+#   CELERY_BROKER_URL=redis://oaredis:6379/1
+#   CELERY_RESULT_BACKEND=redis://oaredis:6379/2
+#   CACHE_LOCATION=redis://oaredis:6379/3
+#   DB_PASSWORD=123456   （与下方 MYSQL_ROOT_PASSWORD 一致）
+name: oa
+
+services:
+  oaredis:
+    image: "redis:7.2.5"
+    container_name: "oaredis"
+    restart: always
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+    volumes:
+      # redis 数据持久化（容器内 /data）
+      - ./volumes/oaredis:/data
+    networks:
+      - oa
+
+  oadb:
+    image: "mysql:8.4.0"
+    container_name: "oadb"
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: zhiliaooa
+      MYSQL_ALLOW_EMPTY_PASSWORD: "no"
+      TZ: Asia/Shanghai
+    command:
+      --character-set-server=UTF8MB4
+      --max_connections=1000
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p$$MYSQL_ROOT_PASSWORD"]
+    volumes:
+      # mysql 数据持久化
+      - ./volumes/db/data:/var/lib/mysql
+      - ./volumes/db/log:/var/log/mysql
+    networks:
+      - oa
+
+  oaback:
+    build: ./oaback
+    restart: always
+    container_name: "oaback"
+    # 必须：把 .env 传进容器，否则容器内无配置、连不上数据库
+    env_file:
+      - ./oaback/.env
+    healthcheck:
+      # 后端容器没有 curl，用 Python 探测；uWSGI 需同时监听 http :8000（见 uwsgi.docker.ini）
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/home/health', timeout=5).status==200 else 1)"]
+    depends_on:
+      oaredis:
+        condition: service_healthy
+      oadb:
+        condition: service_healthy
+    volumes:
+      - ./volumes/sock:/data/sock              # uWSGI socket，供 nginx 容器反代
+      - ./volumes/static:/www/staticfiles      # collectstatic 产物，nginx 容器共享
+      - ./volumes/media:/www/media             # 用户上传文件，nginx 容器共享
+    networks:
+      - oa
+
+  oafront:
+    build: ./oafront
+    container_name: "oafront"
+    restart: always
+    ports:
+      - "80:80"
+    healthcheck:
+      # nginx 镜像没有 curl，用 nginx -t 做存活探测
+      test: ["CMD", "nginx", "-t"]
+    depends_on:
+      - oaback
+    volumes:
+      - ./volumes/sock:/data/sock
+      - ./volumes/static:/www/staticfiles
+      - ./volumes/media:/www/media
+      - ./volumes/oafront/log:/data/log
+    networks:
+      - oa
+
+networks:
+  oa:
+    driver: "bridge"
