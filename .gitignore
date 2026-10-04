@@ -17,8 +17,10 @@ venv/
 env/
 
 # ===== 运行时数据（本地生成，非源码；clone 后可重建/重传）=====
-# FAISS 向量索引（用 python manage.py reindex 重建）
+# 本地向量数据（Milvus 数据由服务端 etcd/MinIO 持久化，旧 faiss.index 已废弃；用 python manage.py reindex 重建）
 var/
+# compose 持久化卷（compose.yaml 的 ./volumes 挂载目录，Milvus/etcd/MinIO/MySQL/Redis 数据）
+volumes/
 # 上传的知识文件与图片（种子数据在 docs/knowledge_seed.json）
 media/
 staticfiles/

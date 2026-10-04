@@ -1,6 +1,6 @@
 # 沐光 OA —— 基于大模型的智能 OA 办公平台后端
 
-基于 **Django + Django REST Framework** 的企业智能 OA 办公系统后端，提供员工管理、通知发布、请假审批、图片上传、首页统计与 **AI 智能助手（RAG 知识问答 + Agent 工具调用 + FAISS 向量检索）** 等能力。前端项目为 `oafront`（Vue3 + Vite），前后端分离，通过 REST API + SSE 流式接口通信。
+基于 **Django + Django REST Framework** 的企业智能 OA 办公系统后端，提供员工管理、通知发布、请假审批、图片上传、首页统计与 **AI 智能助手（RAG 知识问答 + Agent 工具调用 + Milvus 向量检索）** 等能力。前端项目为 `oafront`（Vue3 + Vite），前后端分离，通过 REST API + SSE 流式接口通信。
 
 > **仓库导航**：本仓库为后端代码 · 前端项目 [oafront（Vue3 + Vite）](https://github.com/zywser/oafront)
 
@@ -18,7 +18,7 @@
 | 任务队列 | Celery（异步任务） | broker `redis://127.0.0.1:6379/1`，result backend `redis://127.0.0.1:6379/2`，用于激活邮件异步发送 |
 | 认证 | 自研 JWT（`pyjwt`） | `Authorization: JWT <token>`，有效期 7 天                                                   |
 | 跨域 | `django-cors-headers` | `CORS_ALLOW_ALL_ORIGINS = True`，开发期全放开                                                 |
-| LLM / RAG / Agent | langchain 1.x + langchain-openai / FAISS / tavily | 对话、嵌入、向量检索、Agent 工具调用、联网搜索                                                             |
+| LLM / RAG / Agent | langchain 1.x + langchain-openai / Milvus / tavily | 对话、嵌入、向量检索（Milvus）、Agent 工具调用、联网搜索                                                             |
 | 邮箱 | SMTP（默认 smtp.qq.com:587/TLS） | 员工激活邮件                                                                                 |
 
 ---
@@ -51,7 +51,7 @@ OAback/
 ├── media/                    # 上传文件（知识文件、图片等）
 ├── static/                   # 静态资源
 ├── templates/                # 模板（docs/index.html 接口文档页、staff 激活页等）
-├── var/vector_store/         # FAISS 向量索引持久化目录（首次入库时自动创建）
+├── var/                        # 运行时数据（旧 FAISS 索引已废弃；Milvus 向量数据由服务端 etcd/MinIO 持久化）
 └── .venv/                    # 虚拟环境（仅 pip，实际运行用系统 Python 3.13）
 ```
 
@@ -64,6 +64,7 @@ OAback/
 - Python 3.13
 - MySQL（默认 `oadb` 库，root / `<你的密码>` @ 127.0.0.1:3306，可在 `.env` 修改）
 - Redis（默认 127.0.0.1:6379，用于缓存与 Celery）
+- Milvus 向量数据库（Agent RAG 向量检索后端；本地开发用 Docker 一键起：`docker compose up -d milvus`，全容器化部署见 `compose.yaml`）
 
 ### 2. 安装依赖
 
@@ -71,7 +72,7 @@ OAback/
 pip install -r requirements.txt
 ```
 
-核心依赖：Django、djangorestframework、django-cors-headers、PyMySQL、redis、celery、pyjwt、python-dotenv、langchain（1.x）、langchain-community、langchain-openai、langchain-text-splitters、langchain-tavily、faiss-cpu（向量检索）、openai、numpy、requests、openpyxl（Excel 导入导出）。
+核心依赖：Django、djangorestframework、django-cors-headers、PyMySQL、redis、celery、pyjwt、python-dotenv、langchain（1.x）、langchain-community、langchain-openai、langchain-text-splitters、langchain-tavily、pymilvus（向量检索客户端）、openai、numpy、requests、openpyxl（Excel 导入导出）。
 
 ### 3. 配置 `.env`
 
@@ -132,8 +133,10 @@ pip install -r requirements.txt
 | `AGENT_TOP_K` | `5` | 默认检索返回条数 |
 | `AGENT_CONTEXT_MAX_CHARS` | `8000` | 喂给 LLM 的知识上下文总长上限（字符），调大给长知识更多空间、调小省 token |
 | `AGENT_INJECTION_GUARD` | `true` | 提示注入防护开关（检测"忽略指令/泄露提示词/越狱"等攻击，命中直接拒绝并返回 400） |
-| `AGENT_VECTOR_STORE` | `auto` | 向量检索后端：`auto`（FAISS 可用则用，不可用自动回退 MySQL 余弦扫描）/ `faiss` / `none` |
-| `AGENT_VECTOR_DIR` | `var/vector_store` | FAISS 索引持久化目录（相对项目根） |
+| `AGENT_VECTOR_STORE` | `auto` | 向量检索后端：`auto`（Milvus 可用则用，不可用自动回退 MySQL 余弦扫描）/ `milvus` / `none` |
+| `AGENT_MILVUS_URI` | 空（必填） | Milvus 服务地址：本地 Docker `http://127.0.0.1:19530`；全容器化 `http://oamilvus:19530`；Zilliz Cloud 为 `https://<instance>.api.<region>.zillizcloud.com:443` |
+| `AGENT_MILVUS_TOKEN` | 空 | Milvus 认证 token（开启认证或 Zilliz Cloud 时填写） |
+| `AGENT_MILVUS_COLLECTION` | `oa_knowledge_chunks` | 向量集合名（首次入库时自动创建，维度变化自动重建） |
 | `AGENT_TOOLS_ENABLED` | `true` | 是否启用 Agent 工具调用（请假/审批/部门统计等只读查询） |
 | `AGENT_TOOL_MAX_RESULTS` | `10` | 单个工具返回的最大条数上限 |
 | `LANGSMITH_TRACING` | `true` | 链路追踪开关（key 为空时日志会出现 401 噪音，属环境噪音，可设 `false` 关闭） |
@@ -444,8 +447,8 @@ data: {"type":"done","answer":"...","sources":[...],"usage":{...}}
 | `exceptions.py` | 业务异常 `AgentServiceError`（视图层统一捕获返回 400） |
 | `llm.py` | LLM 客户端：OpenAI 兼容调用 + legacy SSE 解析（`stream_chat_completion`），支持 DeepSeek/OpenAI 切换 |
 | `prompts.py` | Prompt 构建（系统提示/历史上下文/文档上下文/工具查询结果，含数据边界声明与内容侧注入标记）、`invoke_answer`、`_langchain_stream_answer`（`llm.stream()` 逐 token）、`document_to_reference` |
-| `knowledge.py` | 知识库核心：上传归一化、分块、向量化、**FAISS 向量检索优先（失败自动回退 MySQL 余弦）**、Agent 工具决策集成、`ask_question` / `stream_ask_question`、断连幂等 `finalize`、**问题侧注入检测** |
-| `vectorstore.py` | FAISS 向量索引封装：`IndexFlatIP`（L2 归一化后内积 = 余弦）+ `IndexIDMap2`，`upsert` / `delete` / `clear` / `search` / `count`，线程锁 + 维度变化自动重建 + `auto` 开关 |
+| `knowledge.py` | 知识库核心：上传归一化、分块、向量化、**Milvus 向量检索优先（失败自动回退 MySQL 余弦）**、Agent 工具决策集成、`ask_question` / `stream_ask_question`、断连幂等 `finalize`、**问题侧注入检测** |
+| `vectorstore.py` | Milvus 向量存储封装：`pymilvus.MilvusClient` + FLAT 索引 + COSINE 度量，`upsert` / `delete` / `clear` / `search` / `count`，线程锁 + 维度变化自动重建集合 + `auto` 开关 |
 | `tools.py` | Agent 工具调用：3 个只读 ORM 工具（`query_my_leaves` / `query_my_pending_approvals` / `query_department_leave_stats`）+ `try_tool_call` 决策链（关键词预筛 → `llm.bind_tools` → 工具执行 → context 注入） |
 | `security.py` | 提示注入防护：`scan_injection`（强规则+弱规则组合检测）、`guard_enabled`、`DATA_BOUNDARY_NOTE` 数据边界声明 |
 | `web.py` | Tavily 联网搜索：`search_web`、`should_use_web_search`（auto 智能判断）、`_safe_search_web` 优雅降级 |
@@ -460,7 +463,7 @@ data: {"type":"done","answer":"...","sources":[...],"usage":{...}}
 前端提问（web_search 开关状态）
   → AgentQuestionSerializer 校验（question/conversation_id/source_ids/top_k/web_search）
   → try_tool_call：关键词预筛命中 → LLM bind_tools 决策 → 只读 ORM 工具执行 → tool_context 注入 prompt（可选）
-  → retrieve_top_chunks：FAISS 向量检索 top_k*3 候选 → 按用户可见范围权限过滤 → 排序截断（FAISS 不可用自动回退 MySQL 余弦）
+  → retrieve_top_chunks：Milvus 向量检索 top_k*3 候选 → 按用户可见范围权限过滤 → 排序截断（Milvus 不可用自动回退 MySQL 余弦）
   → _safe_search_web：web_search=true 强制联网 / false 禁用 / auto 智能判断（关键词+低分兜底）
   → build_agent_prompt：系统提示 + 历史 + 工具查询结果 + 内部知识 + 联网结果
   → llm.stream() 逐 token（SSE delta）或一次性生成
@@ -470,7 +473,7 @@ data: {"type":"done","answer":"...","sources":[...],"usage":{...}}
 
 ### 关键设计
 
-- **向量检索（FAISS）**：知识块向量化后同时写入 MySQL（`AgentKnowledgeChunk.embedding`）与 FAISS 索引（`IndexFlatIP`，归一化后内积 = 余弦），检索时向量库取 `top_k*3` 候选 → `accessible_sources_queryset` 权限过滤 → 排序截断。向量库只存 `chunk_id + 向量`，正文与权限仍走 MySQL，**不越权**。`AGENT_VECTOR_STORE=auto` 下 FAISS 不可用自动回退原 MySQL 余弦扫描；索引在 `var/vector_store/faiss.index` 持久化，维度变化自动重建。
+- **向量检索（Milvus）**：知识块向量化后同时写入 MySQL（`AgentKnowledgeChunk.embedding`）与 Milvus 集合（FLAT 索引 + COSINE 度量，distance 即余弦相似度），检索时向量库取 `top_k*3` 候选 → `accessible_sources_queryset` 权限过滤 → 排序截断。向量库只存 `chunk_id + 向量`，正文与权限仍走 MySQL，**不越权**。`AGENT_VECTOR_STORE=auto` 下 Milvus 不可用（未配置 URI / 连接失败）自动回退原 MySQL 余弦扫描；数据由 Milvus 服务端（etcd + MinIO）持久化，维度变化自动重建集合。
 - **Agent 工具调用**：`tools.py` 提供 3 个**只读** ORM 工具（我的请假记录 / 待我审批的请假单 / 部门请假统计），决策链为"关键词预筛（宁宽勿窄，如"请假/审批/几天假/我的假"）→ `llm.bind_tools`（DeepSeek，temperature=0）→ 工具执行（绑定当前用户，结果注入 prompt 的 `tool_context` 槽位，可信度高于知识库片段）"。非工具问题（如"放假安排"）经 LLM 决策不调用工具，自动降级纯 RAG。工具命中/调用信息写入会话元数据。
 - **断连幂等**：`stream_ask_question` 收尾走 `finalize()` + `try/finally`，正常/断连/异常三态都落库；断连保留已生成内容，不误标"生成失败"。
 - **联网降级**：`search_web` 失败不中断问答，错误记入 `metadata.web_error`；无内部证据时回答里明示"联网搜索暂不可用（原因）"。
@@ -520,7 +523,7 @@ python manage.py eval_baseline --json docs/eval_report.json   # 自定义报告�
 | `injection_blocked` | 注入攻击条目（`is_injection=true`）被后端拦截的比例（安全加固指标，8/8 为全拦截） |
 | `coverage_gaps` | 评测依赖但当前知识库中不存在的知识源标题（= 知识覆盖缺口） |
 
-### 基线结果（DeepSeek，联网关，FAISS 向量检索 + Agent 工具链路）
+### 基线结果（DeepSeek，联网关，Milvus 向量检索 + Agent 工具链路）
 
 | 指标 | 数值 |
 |---|---|
@@ -644,6 +647,6 @@ celery -A OAback worker -l info
 | 日志出现 `LangSmithAuthError 401` | `LANGSMITH_TRACING=true` 但 key 为空的环境噪音，设 `LANGCHAIN_TRACING_V2=false` 或 `LANGSMITH_TRACING=false` 关闭 |
 | 登录返回 403 `请先登录` | 未携带 `Authorization: JWT <token>`，或 token 过期（7 天） |
 | 知识库导入后检索不到 | 确认知识源状态为 `indexed`；`failed` 状态用 `重建失败项` 或 `POST /agent/reindex {"failed_only":true}` 重试 |
-| 修改/删除知识源后索引不一致 | 单删/批删/重建都会自动同步 FAISS 向量索引（`purge_source_vectors`），若手动改库导致不一致，用 `POST /agent/reindex` 全量重建（索引目录 `var/vector_store/`） |
-| 向量检索报错后仍能问答 | `AGENT_VECTOR_STORE=auto` 下 FAISS 不可用自动回退 MySQL 余弦扫描，功能不中断，日志记录降级原因 |
+| 修改/删除知识源后索引不一致 | 单删/批删/重建都会自动同步 Milvus 向量（`purge_source_vectors`），若手动改库导致不一致，用 `POST /agent/reindex` 全量重建（Milvus 集合 `AGENT_MILVUS_COLLECTION`） |
+| 向量检索报错后仍能问答 | `AGENT_VECTOR_STORE=auto` 下 Milvus 不可用（未配置 URI / 连接失败）自动回退 MySQL 余弦扫描，功能不中断，日志记录降级原因 |
 

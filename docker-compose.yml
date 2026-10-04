@@ -17,6 +17,9 @@ services:
       - log_data:/data/log            # uWSGI / nginx 日志
       - static_data:/www/staticfiles  # collectstatic 产物，前端 nginx 容器共享
       - media_data:/www/media         # 用户上传文件，前端 nginx 容器共享
+    depends_on:
+      milvus:
+        condition: service_healthy    # Milvus 就绪后再启动后端（AGENT_MILVUS_URI=http://127.0.0.1:19530）
     mem_limit: 512m
     restart: unless-stopped
 
@@ -33,8 +36,66 @@ services:
       - media_data:/www/media
     restart: unless-stopped
 
+  # ===== Milvus 向量数据库（Agent RAG 向量检索后端，替换原 FAISS 本地索引）=====
+  # host 网络下三件套监听宿主端口：etcd 2379 / MinIO 9000 / Milvus 19530
+  milvus-etcd:
+    image: quay.io/coreos/etcd:v3.5.18
+    container_name: oaback-milvus-etcd
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      ETCD_AUTO_COMPACTION_MODE: revision
+      ETCD_AUTO_COMPACTION_RETENTION: "1000"
+      ETCD_QUOTA_BACKEND_BYTES: "4294967296"
+      ETCD_SNAPSHOT_COUNT: "50000"
+    volumes:
+      - etcd_data:/etcd
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+
+  milvus-minio:
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    container_name: oaback-milvus-minio
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    volumes:
+      - minio_data:/minio_data
+    command: minio server /minio_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  milvus:
+    image: milvusdb/milvus:v2.5.4
+    container_name: oaback-milvus
+    network_mode: host
+    restart: unless-stopped
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: 127.0.0.1:2379
+      MINIO_ADDRESS: 127.0.0.1:9000
+    volumes:
+      - milvus_data:/var/lib/milvus
+    depends_on:
+      milvus-etcd:
+        condition: service_started
+      milvus-minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9091/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
 volumes:
   sock_data:
   log_data:
   static_data:
   media_data:
+  etcd_data:
+  minio_data:
+  milvus_data:

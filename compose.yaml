@@ -11,6 +11,7 @@
 #   CELERY_BROKER_URL=redis://oaredis:6379/1
 #   CELERY_RESULT_BACKEND=redis://oaredis:6379/2
 #   CACHE_LOCATION=redis://oaredis:6379/3
+#   AGENT_MILVUS_URI=http://oamilvus:19530   （Milvus 向量库）
 #   DB_PASSWORD=123456   （与下方 MYSQL_ROOT_PASSWORD 一致）
 name: oa
 
@@ -48,6 +49,66 @@ services:
     networks:
       - oa
 
+  # ===== Milvus 向量数据库三件套（Agent RAG 向量检索后端，替换原 FAISS 本地索引）=====
+  oamilvus-etcd:
+    image: "quay.io/coreos/etcd:v3.5.18"
+    container_name: "oamilvus-etcd"
+    restart: always
+    environment:
+      ETCD_AUTO_COMPACTION_MODE: revision
+      ETCD_AUTO_COMPACTION_RETENTION: "1000"
+      ETCD_QUOTA_BACKEND_BYTES: "4294967296"
+      ETCD_SNAPSHOT_COUNT: "50000"
+    volumes:
+      - ./volumes/etcd:/etcd
+    command: etcd -advertise-client-urls=http://oamilvus-etcd:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    networks:
+      - oa
+
+  oamilvus-minio:
+    image: "minio/minio:RELEASE.2023-03-20T20-16-18Z"
+    container_name: "oamilvus-minio"
+    restart: always
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    volumes:
+      - ./volumes/minio:/minio_data
+    command: minio server /minio_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - oa
+
+  oamilvus:
+    image: "milvusdb/milvus:v2.5.4"
+    container_name: "oamilvus"
+    restart: always
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: oamilvus-etcd:2379
+      MINIO_ADDRESS: oamilvus-minio:9000
+    volumes:
+      - ./volumes/milvus:/var/lib/milvus
+    ports:
+      - "19530:19530"   # gRPC 客户端端口（后端 AGENT_MILVUS_URI=http://oamilvus:19530 走内网，无需映射，仅调试/外部访问用）
+      - "9091:9091"     # 健康检查/指标端口
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9091/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      oamilvus-etcd:
+        condition: service_started
+      oamilvus-minio:
+        condition: service_healthy
+    networks:
+      - oa
+
   oaback:
     build: ./oaback
     restart: always
@@ -62,6 +123,8 @@ services:
       oaredis:
         condition: service_healthy
       oadb:
+        condition: service_healthy
+      oamilvus:
         condition: service_healthy
     volumes:
       - ./volumes/sock:/data/sock              # uWSGI socket，供 nginx 容器反代
