@@ -1,3 +1,5 @@
+import re
+
 from rest_framework import serializers
 
 from APPS.oaauth.models import OADepartment
@@ -38,6 +40,7 @@ class AgentKnowledgeSourceSerializer(serializers.ModelSerializer):
     status_label = serializers.CharField(source="get_status_display", read_only=True)
     file_url = serializers.SerializerMethodField()
     content_preview = serializers.SerializerMethodField()
+    content = serializers.SerializerMethodField()
 
     class Meta:
         model = AgentKnowledgeSource
@@ -46,6 +49,7 @@ class AgentKnowledgeSourceSerializer(serializers.ModelSerializer):
             "title",
             "source_type",
             "source_type_label",
+            "content",
             "content_preview",
             "summary",
             "file_url",
@@ -75,6 +79,23 @@ class AgentKnowledgeSourceSerializer(serializers.ModelSerializer):
     def get_content_preview(self, obj):
         content = obj.content or obj.summary or ""
         return content[:500]
+
+    def get_content(self, obj):
+        content = obj.content or ""
+        if not content:
+            return content
+        # 历史通知里的图片地址是部署时写死的绝对 host（如 http://121.41.67.132/media/...），
+        # 换环境后会 404。这里把 /media/ 前缀的 host 归一化为当前请求 host，保证图片可访问；
+        # 外链图片（非 /media/）与相对路径原样保留。
+        request = self.context.get("request")
+        if request is None:
+            return content
+        try:
+            current_host = f"{request.scheme}://{request.get_host()}"
+            return re.sub(r"(https?://[^/\"']+)(?=/media/)", current_host, content)
+        except Exception:
+            # Host 头异常（如不在 ALLOWED_HOSTS）时放弃归一化，避免整个接口 500
+            return content
 
 
 class AgentKnowledgeUploadSerializer(serializers.Serializer):

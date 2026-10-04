@@ -213,7 +213,10 @@ class AgentUploadView(APIView):
         except AgentServiceError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response(AgentKnowledgeSourceSerializer(source).data, status=status.HTTP_201_CREATED)
+        return Response(
+            AgentKnowledgeSourceSerializer(source, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class AgentSyncInformView(APIView):

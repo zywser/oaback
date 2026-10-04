@@ -23,8 +23,8 @@ class UploadImageSerializer(serializers.Serializer):
         1024B=1KB
         1024KB=1MB
         """
-        max_size = 2 * 1024 * 1024
+        max_size = 10 * 1024 * 1024
         size = value.size
         if size > max_size:
-            raise serializers.ValidationError("图片不能超过2MB！")
+            raise serializers.ValidationError("图片不能超过10MB！")
         return  value
