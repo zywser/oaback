@@ -22,9 +22,8 @@ class InformSerializers(serializers.ModelSerializer):
     # 如果后端要接收列表，那么就需要ListField
     department_ids = serializers.ListField(write_only=True)
     reads = InformReadSerializer(many=True, read_only=True)
-    # 通知内容里的图片地址是发布时写死的绝对 host（如 http://121.41.67.132/media/...），
-    # 换环境后会 404。这里把 /media/ 前缀的 host 归一化为当前请求 host，保证图片可访问。
-    content = serializers.SerializerMethodField()
+    # content 为普通可写字段（发布时正常入库）；图片 host 归一化在 to_representation 输出时处理，
+    # 把 /media/ 前缀的绝对 host 替换为当前请求 host，保证换环境后图片可访问。
 
     class Meta:
         model = Inform
@@ -48,19 +47,22 @@ class InformSerializers(serializers.ModelSerializer):
             inform.save()
         return  inform
 
-    def get_content(self, obj):
-        content = obj.content or ""
+    def to_representation(self, instance):
+        # 输出时把 /media/ 前缀的绝对 host 归一化为当前请求 host，保证换环境后图片可访问
+        data = super().to_representation(instance)
+        content = data.get("content") or ""
         if not content:
-            return content
+            return data
         request = self.context.get("request")
         if request is None:
-            return content
+            return data
         try:
             current_host = f"{request.scheme}://{request.get_host()}"
-            return re.sub(r"(https?://[^/\"']+)(?=/media/)", current_host, content)
+            data["content"] = re.sub(r"(https?://[^/\"']+)(?=/media/)", current_host, content)
         except Exception:
             # Host 头异常（如不在 ALLOWED_HOSTS）时放弃归一化，避免整个接口 500
-            return content
+            pass
+        return data
 
 
 
